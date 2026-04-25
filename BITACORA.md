@@ -119,3 +119,40 @@ Una tabla **sí almacena datos**. dbt ejecuta el SQL y guarda el resultado como 
 > Existe una tercera opción importante: `incremental` — solo agrega filas nuevas en lugar de recrear toda la tabla. Se verá en pasos posteriores.
 
 - Próximo paso: restructurar modelos con capas staging → marts
+
+---
+
+## Paso 6 — 2026-04-26
+**Modelos actualizados y nuevo modelo `customers.sql`**
+- Se modificó `my_first_dbt_model.sql`
+- Se creó `Jaffle_Shop/models/customers.sql`
+- Commit y push al repo
+
+---
+
+## Paso 7 — 2026-04-26
+**Extensiones VS Code y conexión a Snowflake**
+
+### Extensiones recomendadas para dbt + Snowflake
+- **dbt Power User** (`innoverio`) — preview de modelos y CTEs, linaje visual, autocompletar `ref()`. Usa cómputo de Snowflake al ejecutar queries
+  - Marketplace: https://marketplace.visualstudio.com/items?itemName=innoverio.vscode-dbt-power-user
+- **Snowflake** (oficial) — cliente SQL directo contra Snowflake, útil para explorar datos raw
+  - Marketplace: https://marketplace.visualstudio.com/items?itemName=snowflake.snowflake-vsc
+
+### Cómputo de Snowflake
+- Todo comando dbt (`run`, `debug`, `test`) y preview de modelos consume créditos del warehouse `TRANSFORMING`
+- El gasto es mínimo en desarrollo si el warehouse tiene **auto-suspend** activado
+- Verificar y configurar auto-suspend:
+  ```sql
+  SHOW WAREHOUSES LIKE 'TRANSFORMING';
+  ALTER WAREHOUSE TRANSFORMING SET AUTO_SUSPEND = 60; -- apaga a los 60 seg de inactividad
+  ```
+
+### Formas de conectarse a Snowflake
+| Método | URL / Comando | Cuándo usarlo |
+|---|---|---|
+| **Snowsight** (web) | https://app.snowflake.com | Queries rápidos, admin, revisar resultados |
+| **Extensión VS Code** | Snowflake oficial en marketplace | Desarrollo diario sin salir del editor |
+| **SnowSQL** (CLI) | `snowsql -a CCGVFMG-ZJ37257 -u HERRERAESPINOLA` | Automatización, scripts |
+
+- Próximo paso: verificar auto-suspend del warehouse y estructurar capas del proyecto
