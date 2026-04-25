@@ -69,3 +69,53 @@ dbt ejecutó los dos modelos de ejemplo incluidos en el proyecto:
 - **DAG**: dbt calcula el orden de ejecución automáticamente — nunca correrá `my_second_dbt_model` antes de que `my_first_dbt_model` esté listo
 
 - Próximo paso: explorar el `dbt_project.yml` y crear modelos propios
+
+---
+
+## Paso 5 — 2026-04-26
+**Materializaciones: `view` vs `table`**
+
+### `view` (Vista)
+Una vista **no almacena datos**. Es solo una consulta SQL guardada. Cada vez que alguien la consulta, Snowflake ejecuta el SQL en ese momento.
+
+```sql
+{{ config(materialized='view') }}  -- o simplemente no poner nada, es el default
+```
+
+**Cuándo usarla:**
+- Modelos de staging (limpieza y renombramiento de columnas de fuentes raw)
+- Modelos que se consultan poco o que no son costosos de calcular
+- Cuando los datos fuente cambian constantemente y necesitas siempre los más frescos
+- Capas intermedias que solo usa dbt internamente
+
+**Desventaja:** si la consulta es compleja o la tabla fuente es grande, cada query recalcula todo desde cero — puede ser lento y costoso en Snowflake.
+
+---
+
+### `table` (Tabla física)
+Una tabla **sí almacena datos**. dbt ejecuta el SQL y guarda el resultado como una tabla real en Snowflake. En cada `dbt run` la tabla se elimina y se recrea completa.
+
+```sql
+{{ config(materialized='table') }}
+```
+
+**Cuándo usarla:**
+- Modelos que se consultan frecuentemente (dashboards, reportes)
+- Transformaciones costosas que no quieres recalcular en cada consulta
+- Modelos finales de la capa de marts (los que consume el negocio)
+
+**Desventaja:** ocupa storage en Snowflake y cada `dbt run` la reconstruye completa — costoso si la tabla es muy grande.
+
+---
+
+### Regla general en un proyecto dbt
+
+| Capa | Materialización recomendada |
+|---|---|
+| `staging` (limpieza de raw) | `view` |
+| `intermediate` (lógica intermedia) | `view` o `ephemeral` |
+| `marts` (producto final) | `table` |
+
+> Existe una tercera opción importante: `incremental` — solo agrega filas nuevas en lugar de recrear toda la tabla. Se verá en pasos posteriores.
+
+- Próximo paso: restructurar modelos con capas staging → marts
