@@ -32,3 +32,13 @@ Registro de pasos del proyecto DBT desde cero hasta producción en GitHub.
 - Database: `ANALYTICS` / Schema: `DEV` / Warehouse: `TRANSFORMING`
 - Nota: `profiles.yml` vive en `~/.dbt/` (fuera del repo) para no exponer credenciales en GitHub
 - Próximo paso: `dbt init Jaffle_Shop` para crear la estructura del proyecto
+
+---
+
+## Paso 3 — 2026-04-25
+**Conexión a Snowflake verificada con `dbt debug`**
+- Proyecto `Jaffle_Shop` ya existía desde Feb 19 — no fue necesario re-inicializar
+- Error encontrado: `ImportError: InvalidCatalogIntegrationConfigError` — conflicto de versiones entre `dbt-core 1.10.0` y `dbt-snowflake 1.10.1`
+- Solución: `pip install --upgrade dbt-snowflake` — actualizó `dbt-core`, `dbt-adapters` y dependencias a versiones compatibles
+- `dbt debug` pasó todos los checks: perfil `Jaffle_Shop`, conexión Snowflake, key pair auth — todo OK
+- Próximo paso: crear primeros modelos en `models/`
