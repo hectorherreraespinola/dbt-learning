@@ -42,3 +42,30 @@ Registro de pasos del proyecto DBT desde cero hasta producción en GitHub.
 - Solución: `pip install --upgrade dbt-snowflake` — actualizó `dbt-core`, `dbt-adapters` y dependencias a versiones compatibles
 - `dbt debug` pasó todos los checks: perfil `Jaffle_Shop`, conexión Snowflake, key pair auth — todo OK
 - Próximo paso: crear primeros modelos en `models/`
+
+---
+
+## Paso 4 — 2026-04-26
+**Primer `dbt run` ejecutado**
+
+### ¿Qué hace `dbt run`?
+`dbt run` compila todos los modelos SQL del proyecto y los ejecuta en Snowflake en el orden correcto según sus dependencias. Por cada modelo, dbt genera y ejecuta un `CREATE TABLE` o `CREATE VIEW` en la base de datos destino.
+
+### Modelos que corrieron
+dbt ejecutó los dos modelos de ejemplo incluidos en el proyecto:
+
+1. **`my_first_dbt_model`** — materializado como `TABLE`
+   - Crea una tabla sencilla con dos filas: `id = 1` e `id = null`
+   - Usa `{{ config(materialized='table') }}` para indicarle a dbt que lo cree como tabla física en Snowflake
+
+2. **`my_second_dbt_model`** — por defecto `VIEW`
+   - Usa `{{ ref('my_first_dbt_model') }}` para referenciar el modelo anterior
+   - `ref()` es la función clave de dbt: establece la dependencia entre modelos y garantiza el orden de ejecución
+   - Filtra solo las filas donde `id = 1`
+
+### Conceptos clave
+- **Materialización**: define cómo dbt crea el objeto en la base de datos (`table`, `view`, `incremental`, `ephemeral`)
+- **`ref()`**: en lugar de escribir el nombre directo de una tabla, `ref()` resuelve la dependencia y permite que dbt construya el DAG (grafo de dependencias)
+- **DAG**: dbt calcula el orden de ejecución automáticamente — nunca correrá `my_second_dbt_model` antes de que `my_first_dbt_model` esté listo
+
+- Próximo paso: explorar el `dbt_project.yml` y crear modelos propios
