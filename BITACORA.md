@@ -124,9 +124,38 @@ Una tabla **sí almacena datos**. dbt ejecuta el SQL y guarda el resultado como 
 
 ## Paso 6 — 2026-04-26
 **Modelos actualizados y nuevo modelo `customers.sql`**
-- Se modificó `my_first_dbt_model.sql`
-- Se creó `Jaffle_Shop/models/customers.sql`
-- Commit y push al repo
+
+### Cambio 1 — `my_first_dbt_model.sql`: `table` → `view`
+```sql
+-- antes
+{{ config(materialized='table') }}
+
+-- después
+{{ config(materialized='view') }}
+```
+**Por qué:** este modelo es solo un ejemplo con datos ficticios (`select 1 as id`). No tiene sentido gastar storage en Snowflake para datos que no son reales. Como `view` se recalcula al vuelo sin ocupar espacio.
+
+---
+
+### Cambio 2 — nuevo modelo `customers.sql` con referencias a staging
+En lugar de leer tablas raw directamente, `customers.sql` usa `ref()` apuntando a modelos de staging:
+```sql
+SELECT * FROM {{ ref('stg_jaffle_shop__customer') }}
+SELECT * FROM {{ ref('stg_jaffle_shop__orders') }}
+```
+**Por qué es importante:**
+- **Nunca se referencia el raw directo** en modelos de marts — siempre se pasa por staging primero
+- `ref()` le dice a dbt que `customers` depende de `stg_jaffle_shop__customer` y `stg_jaffle_shop__orders`, así dbt los construye en el orden correcto
+- Si el nombre de la tabla raw cambia, solo se actualiza el staging — `customers.sql` no se toca
+
+### Lógica del modelo `customers.sql`
+Combina clientes con sus órdenes en 4 CTEs:
+1. `customers` — trae todos los clientes del staging
+2. `orders` — trae todas las órdenes del staging
+3. `customer_orders` — agrega por cliente: primera orden, última orden, total de órdenes
+4. `final` — hace un `LEFT JOIN` para que los clientes sin órdenes aparezcan con `number_of_orders = 0` (usando `COALESCE`)
+
+- Próximo paso: crear los modelos de staging `stg_jaffle_shop__customer` y `stg_jaffle_shop__orders`
 
 ---
 
