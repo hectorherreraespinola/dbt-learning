@@ -185,3 +185,81 @@ Combina clientes con sus órdenes en 4 CTEs:
 | **SnowSQL** (CLI) | `snowsql -a CCGVFMG-ZJ37257 -u HERRERAESPINOLA` | Automatización, scripts |
 
 - Próximo paso: verificar auto-suspend del warehouse y estructurar capas del proyecto
+
+---
+
+## Paso 8 — 2026-04-26
+**Comandos de selección: upstream y downstream**
+
+En dbt el símbolo `+` controla hacia dónde viajas en el DAG (grafo de dependencias) desde el modelo seleccionado.
+
+### Referencia del proyecto actual
+```
+stg_jaffle_shop__customer ─┐
+                            ├──► customers
+stg_jaffle_shop__orders   ─┘
+```
+
+---
+
+### Correr solo un modelo
+```bash
+dbt run --select customers
+```
+Ejecuta únicamente `customers`. Si sus dependencias (`stg_jaffle_shop__customer`, `stg_jaffle_shop__orders`) no existen en Snowflake, el run falla.
+
+**Cuándo usarlo:** cuando ya tienes todo el upstream construido y solo quieres recargar ese modelo.
+
+---
+
+### Upstream — `+` antes del modelo
+```bash
+dbt run --select +customers
+```
+Ejecuta `customers` **y todos sus ancestros** (modelos de los que depende), en orden correcto:
+1. `stg_jaffle_shop__customer`
+2. `stg_jaffle_shop__orders`
+3. `customers`
+
+**Cuándo usarlo:** cuando cambias la lógica de `customers` y quieres asegurarte de que todo lo que necesita esté fresco antes de correrlo.
+
+---
+
+### Downstream — `+` después del modelo
+```bash
+dbt run --select customers+
+```
+Ejecuta `customers` **y todos los modelos que dependen de él** (sus descendientes).
+
+**Cuándo usarlo:** cuando cambias `customers` y quieres propagar el cambio a todos los modelos que lo consumen (reportes, marts, etc.).
+
+---
+
+### Upstream y downstream — `+` en ambos lados
+```bash
+dbt run --select +customers+
+```
+Ejecuta **todo el árbol completo**: ancestros + modelo + descendientes.
+
+**Cuándo usarlo:** cuando haces un cambio estructural en un modelo del medio del DAG y quieres reconstruir todo lo relacionado.
+
+---
+
+### Otros selectores útiles
+
+| Comando | Qué hace |
+|---|---|
+| `dbt run --select staging.*` | Todos los modelos dentro de la carpeta `staging/` |
+| `dbt run --select +customers --exclude stg_jaffle_shop__orders` | Upstream de customers, excluyendo un modelo específico |
+| `dbt run --select 1+customers` | Solo 1 nivel de upstream (no toda la cadena) |
+| `dbt run --select customers+1` | Solo 1 nivel de downstream |
+| `dbt run --select tag:daily` | Todos los modelos con el tag `daily` |
+
+---
+
+### Regla general
+- Desarrollando un modelo nuevo → `dbt run --select +mi_modelo`
+- Corrigiendo un bug en staging → `dbt run --select stg_modelo+`
+- Full refresh del proyecto → `dbt run` (sin select, corre todo)
+
+- Próximo paso: crear carpetas `staging/` y `marts/` para organizar el proyecto
