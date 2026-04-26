@@ -391,3 +391,73 @@ El `+` antes de `materialized` indica que la configuración aplica en cascada a 
 - **Subcarpeta `jaffle_shop/`** dentro de staging permite separar múltiples fuentes de datos en el futuro (`staging/stripe/`, `staging/salesforce/`, etc.)
 
 - Próximo paso: correr `dbt run` con la nueva estructura y verificar en Snowflake
+
+---
+
+## Paso 11 — 2026-04-26
+**Nuevos modelos: `fct_orders`, `stg_stripe__payment` y actualización de `dim_customers`**
+
+### DAG actual del proyecto
+```
+raw.jaffle_shop.customers ──► stg_jaffle_shop__customer ──────────────────────────► dim_customers
+raw.jaffle_shop.orders    ──► stg_jaffle_shop__orders   ──► fct_orders ────────────►      ▲
+raw.stripe.payment        ──► stg_stripe__payment       ──►     ▲
+```
+
+---
+
+### `stg_stripe__payment.sql` — nuevo staging de Stripe
+Limpia y renombra la tabla raw de pagos de Stripe:
+- `id` → `payment_id`
+- `orderid` → `order_id`
+- `paymentmethod` → `payment_method`
+- `status` → `payment_status`
+- `amount` → `payment_amount`
+- `created` → `payment_created`
+
+Usa `{{ source('stripe', 'payment') }}` en lugar de la ruta hardcodeada. Requiere `sources.yml`.
+
+---
+
+### `sources.yml` — declaración de fuentes
+Archivo nuevo en `staging/stripe/`. Le dice a dbt dónde vive la tabla raw:
+```yaml
+sources:
+  - name: stripe
+    database: raw
+    schema: stripe
+    tables:
+      - name: payment
+```
+**Por qué usar `source()` en lugar de ruta hardcodeada:**
+- dbt puede auditar freshness de las fuentes (`dbt source freshness`)
+- Las fuentes aparecen en el linaje del DAG
+- Si cambia la base de datos, se cambia en un solo lugar
+
+---
+
+### `fct_orders.sql` — nuevo modelo de hechos
+Tabla de hechos de órdenes: une órdenes con pagos exitosos.
+- CTE `order_payments`: agrega pagos por `order_id`, sumando solo los de `payment_status = 'success'`
+- `COALESCE(amount, 0)` para órdenes sin pago exitoso registrado
+- Materialización: `table` (hereda de `marts/` en `dbt_project.yml`)
+
+---
+
+### `dim_customers.sql` — actualizado
+Se agregaron dos métricas nuevas:
+- `lifetime_value` — suma total gastada por cliente (via `fct_orders`)
+- Ahora referencia `fct_orders` en lugar de calcular órdenes desde staging, siguiendo el principio de no duplicar lógica
+
+---
+
+### Error corregido: múltiples `WITH` en CTEs
+SQL solo permite un `WITH` al inicio. Los CTEs siguientes van separados por coma sin repetir `WITH`.
+```sql
+-- ❌ incorrecto          -- ✅ correcto
+with a as (...),          with a as (...),
+with b as (...),          b as (...),
+with c as (...)           c as (...)
+```
+
+- Próximo paso: crear `sources.yml` para jaffle_shop y correr `dbt run` completo
