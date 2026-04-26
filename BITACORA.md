@@ -339,3 +339,55 @@ left join customer_orders using (customer_id)
 | **Quién lo consume** | Otros modelos dbt | Dashboards, analistas, BI tools |
 
 - Próximo paso: mover los modelos actuales a sus carpetas correspondientes y correr `dbt run`
+
+---
+
+## Paso 10 — 2026-04-26
+**Restructuración del proyecto y actualización de `dbt_project.yml`**
+
+### Cambios realizados
+
+**1. Reorganización de carpetas**
+```
+antes:
+models/
+├── stg_jaffle_shop__customer.sql
+├── stg_jaffle_shop__orders.sql
+└── customers.sql
+
+después:
+models/
+├── staging/
+│   └── jaffle_shop/
+│       ├── stg_jaffle_shop__customer.sql
+│       └── stg_jaffle_shop__orders.sql
+└── marts/
+    └── dim_customers.sql
+```
+
+**2. Rename: `customers.sql` → `dim_customers.sql`**
+Se agregó el prefijo `dim_` para indicar que es una tabla de dimensión (concepto de modelado dimensional). Las dimensiones describen entidades del negocio (quiénes, qué, dónde) en contraposición a las métricas (facts).
+
+**3. `dbt_project.yml` — materialización global por carpeta**
+
+En lugar de definir `{{ config(materialized=...) }}` en cada modelo, se configura una vez para toda la carpeta:
+
+```yaml
+models:
+  Jaffle_Shop:
+    staging:
+      +materialized: view   # todos los modelos en staging/ → view
+    marts:
+      +materialized: table  # todos los modelos en marts/ → table
+```
+
+El `+` antes de `materialized` indica que la configuración aplica en cascada a todos los modelos dentro de esa carpeta y sus subcarpetas.
+
+> **Bug corregido:** `marts` estaba mal indentado en el YAML, quedando anidado bajo `staging` en lugar de estar al mismo nivel. Esto causaría que los marts heredaran la materialización `view` en lugar de `table`.
+
+### Por qué estructurar así
+- **Un solo lugar de configuración** — cambiar la materialización de todos los stagings es editar una línea en `dbt_project.yml`, no 10 archivos
+- **Convención clara** — cualquier modelo nuevo en `staging/` automáticamente hereda `view` sin configuración extra
+- **Subcarpeta `jaffle_shop/`** dentro de staging permite separar múltiples fuentes de datos en el futuro (`staging/stripe/`, `staging/salesforce/`, etc.)
+
+- Próximo paso: correr `dbt run` con la nueva estructura y verificar en Snowflake
