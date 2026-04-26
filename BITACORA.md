@@ -263,3 +263,79 @@ Ejecuta **todo el árbol completo**: ancestros + modelo + descendientes.
 - Full refresh del proyecto → `dbt run` (sin select, corre todo)
 
 - Próximo paso: crear carpetas `staging/` y `marts/` para organizar el proyecto
+
+---
+
+## Paso 9 — 2026-04-26
+**Convenciones de capas: staging y marts**
+
+Un proyecto dbt bien estructurado separa los modelos en capas con responsabilidades claras. Cada capa tiene su propia carpeta dentro de `models/`.
+
+```
+models/
+├── staging/          ← limpieza de datos raw
+│   └── jaffle_shop/
+│       ├── stg_jaffle_shop__customers.sql
+│       └── stg_jaffle_shop__orders.sql
+└── marts/            ← producto final para el negocio
+    └── core/
+        └── customers.sql
+```
+
+---
+
+### `staging/` — Capa de limpieza
+**Propósito:** tomar los datos raw exactamente como llegan de la fuente y limpiarlos. Un modelo de staging por cada tabla fuente.
+
+**Reglas:**
+- Nombre: `stg_<fuente>__<entidad>.sql` (doble guión bajo separa fuente de entidad)
+- Materialización: siempre `view` — no almacena datos, solo transforma
+- Solo hace limpieza básica: renombrar columnas, castear tipos, estandarizar valores
+- **Nunca** hace joins ni agrega lógica de negocio
+- Referencia directamente las tablas raw con `source()`
+
+```sql
+-- stg_jaffle_shop__customers.sql
+select
+    id          as customer_id,
+    first_name,
+    last_name
+from {{ source('jaffle_shop', 'customers') }}
+```
+
+---
+
+### `marts/` — Capa de negocio
+**Propósito:** modelos listos para consumir por el negocio — dashboards, reportes, análisis. Aquí vive la lógica de negocio real.
+
+**Reglas:**
+- Nombre descriptivo sin prefijo: `customers.sql`, `orders.sql`, `revenue.sql`
+- Materialización: `table` — se consultan frecuentemente y deben ser rápidos
+- Hace joins, agregaciones y aplica lógica de negocio
+- **Nunca** referencia tablas raw — solo modelos de `staging/` vía `ref()`
+- Se organizan por dominio: `marts/core/`, `marts/finance/`, `marts/marketing/`
+
+```sql
+-- marts/core/customers.sql
+select
+    customers.customer_id,
+    customers.first_name,
+    customer_orders.number_of_orders
+from {{ ref('stg_jaffle_shop__customers') }}
+left join customer_orders using (customer_id)
+```
+
+---
+
+### Resumen de convenciones
+
+| | `staging/` | `marts/` |
+|---|---|---|
+| **Qué hace** | Limpia datos raw | Lógica de negocio |
+| **Fuente** | Tablas raw (`source()`) | Modelos staging (`ref()`) |
+| **Joins** | No | Sí |
+| **Materialización** | `view` | `table` |
+| **Naming** | `stg_fuente__entidad` | nombre del concepto de negocio |
+| **Quién lo consume** | Otros modelos dbt | Dashboards, analistas, BI tools |
+
+- Próximo paso: mover los modelos actuales a sus carpetas correspondientes y correr `dbt run`
