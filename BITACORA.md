@@ -541,3 +541,44 @@ export PATH="/Library/Frameworks/Python.framework/Versions/3.13/bin:$PATH"
 - `dbtf` → dbt-fusion 2.0 preview (alias existente)
 
 - Próximo paso: correr `dbt run` y `dbt source freshness` con dbt-core
+
+---
+
+## Paso 14 — 2026-05-02
+**Instalación de `dbt-codegen` y generación automática de YAMLs**
+
+### `packages.yml` — nuevo paquete instalado
+```yaml
+packages:
+  - package: dbt-labs/codegen
+    version: 0.14.0
+```
+
+Se instala con `dbt deps`. También instaló `dbt_utils 1.3.3` como dependencia.
+
+### ¿Qué es dbt-codegen?
+Paquete de dbt-labs que genera automáticamente el código YAML para sources y modelos, evitando escribirlo a mano.
+
+### `data.yml` — macro de generación de sources
+```yaml
+{{ codegen.generate_source(schema_name='jaffle_shop', database_name='raw') }}
+```
+
+Al correr `dbt compile` con este archivo, dbt genera automáticamente el YAML completo de `_src_jaffle_shop.yml` inspeccionando las tablas reales en Snowflake (`raw.jaffle_shop.*`).
+
+Equivalente a escribir manualmente:
+```yaml
+sources:
+  - name: jaffle_shop
+    database: raw
+    schema: jaffle_shop
+    tables:
+      - name: customers
+      - name: orders
+      - name: ...  ← todas las tablas que encuentre
+```
+
+### `_src_jaffle_shop.yml` — limpieza
+Removido `freshness: null` de la tabla `customers` — no es necesario declararlo explícitamente cuando no se quiere chequear freshness en una tabla.
+
+- Próximo paso: explorar `dbt test` y agregar tests de calidad de datos
