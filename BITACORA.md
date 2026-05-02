@@ -461,3 +461,45 @@ with c as (...)           c as (...)
 ```
 
 - Próximo paso: crear `sources.yml` para jaffle_shop y correr `dbt run` completo
+
+---
+
+## Paso 12 — 2026-05-02
+**Migración a `source()` en staging de jaffle_shop y creación de `_src_jaffle_shop.yml`**
+
+### Cambios realizados
+
+**1. `stg_jaffle_shop__customer.sql` y `stg_jaffle_shop__orders.sql`**
+
+Reemplazada la ruta hardcodeada por `{{ source() }}`:
+```sql
+-- antes
+from raw.jaffle_shop.customers
+
+-- después
+from {{ source('jaffle_shop', 'customers') }}
+```
+
+**2. `_src_jaffle_shop.yml`** — nuevo archivo de declaración de fuentes
+```yaml
+sources:
+  - name: jaffle_shop
+    database: raw
+    schema: jaffle_shop
+    tables:
+      - name: customers
+      - name: orders
+```
+
+Convención de naming: el prefijo `_` mantiene el archivo al tope del directorio en el explorador.
+
+### Por qué usar `source()` en lugar de rutas hardcodeadas
+
+| | Ruta hardcodeada | `source()` |
+|---|---|---|
+| Cambio de base de datos | Editar cada modelo | Editar solo `_src_*.yml` |
+| Aparece en el linaje (DAG) | No | Sí |
+| `dbt source freshness` | No disponible | Disponible |
+| Documentación centralizada | No | Sí |
+
+- Próximo paso: correr `dbt run` completo y verificar el DAG en Snowflake
