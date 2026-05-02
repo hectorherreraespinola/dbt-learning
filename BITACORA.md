@@ -503,3 +503,41 @@ Convención de naming: el prefijo `_` mantiene el archivo al tope del directorio
 | Documentación centralizada | No | Sí |
 
 - Próximo paso: correr `dbt run` completo y verificar el DAG en Snowflake
+
+---
+
+## Paso 13 — 2026-05-02
+**`dbt source freshness`, bug de dbt-fusion y switch a dbt-core**
+
+### `dbt source freshness`
+Comando que verifica si las tablas fuente están actualizadas. Requiere `loaded_at_field` y umbrales en el `_src_*.yml`:
+
+```yaml
+- name: orders
+  loaded_at_field: _etl_loaded_at
+  freshness:
+    warn_after:
+      count: 12
+      period: hour
+    error_after:
+      count: 30
+      period: day
+```
+
+- `warn_after`: alerta si lleva más de 12 horas sin actualizarse
+- `error_after`: falla si lleva más de 30 días (ajustado para sandbox estático)
+- `freshness: null` en `customers` desactiva el chequeo para esa tabla
+
+### Bug dbt-fusion 2.0 preview
+dbt-fusion rechazaba `freshness` y `loaded_at_field` como claves inválidas. Bug confirmado en [Issue #666](https://github.com/dbt-labs/dbt-fusion/issues/666), sin fix aún.
+
+### Switch a dbt-core via `~/.zshrc`
+Se agregó al final de `~/.zshrc` para que dbt-core tome precedencia sobre dbt-fusion:
+```bash
+export PATH="/Library/Frameworks/Python.framework/Versions/3.13/bin:$PATH"
+```
+
+- `dbt` → dbt-core 1.11.8 (estable)
+- `dbtf` → dbt-fusion 2.0 preview (alias existente)
+
+- Próximo paso: correr `dbt run` y `dbt source freshness` con dbt-core
