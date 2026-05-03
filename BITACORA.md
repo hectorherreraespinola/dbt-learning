@@ -582,3 +582,59 @@ sources:
 Removido `freshness: null` de la tabla `customers` — no es necesario declararlo explícitamente cuando no se quiere chequear freshness en una tabla.
 
 - Próximo paso: explorar `dbt test` y agregar tests de calidad de datos
+
+---
+
+## Paso 15 — 2026-05-03
+**Nuevos modelos `base_`, tablas nuevas en sources y refactor de `stg_jaffle_shop__orders`**
+
+### Nuevos modelos `base_jaffle_shop__*.sql`
+Se generaron con `dbt-codegen` 4 modelos base que sirven como capa de lectura directa del raw antes del staging:
+
+| Modelo | Tabla fuente |
+|---|---|
+| `base_jaffle_shop_customers.sql` | `raw.jaffle_shop.customers` |
+| `base_jaffle_shop_orders.sql` | `raw.jaffle_shop.orders` |
+| `base_jaffle_shop_products.sql` | `raw.jaffle_shop.products` |
+| `base_jaffle_shop_customer_test.sql` | `raw.jaffle_shop.customer_test` |
+
+Usan `{{ adapter.quote("COLUMNA") }}` para preservar el case exacto de los nombres de columna en Snowflake (que por default guarda todo en mayúsculas).
+
+> Nota: `base_jaffle_shop_products` y `base_jaffle_shop_customer_test` tienen el `select` vacío — pendiente completar las columnas.
+
+---
+
+### `_src_jaffle_shop.yml` — nuevas tablas declaradas
+Se agregaron `products` y `customer_test` al sources:
+```yaml
+tables:
+  - name: customers
+  - name: orders
+  - name: products
+  - name: customer_test
+```
+También se removió el bloque de `freshness` de `orders` — pendiente re-agregar cuando se confirme que funciona con dbt-core.
+
+---
+
+### `stg_jaffle_shop__orders.sql` — refactor con patrón `source → renamed`
+Se adoptó el patrón estándar de staging con dos CTEs:
+```sql
+with source as (
+    select * from {{ source('jaffle_shop', 'orders') }}
+),
+renamed as (
+    select
+        id          as order_id,
+        user_id     as customer_id,
+        order_date,
+        status      as order_status
+    from source
+)
+select * from renamed
+```
+- CTE `source`: lee la tabla raw sin transformar
+- CTE `renamed`: aplica solo renombramientos — sin lógica de negocio
+- `status` renombrado a `order_status` para mayor claridad
+
+- Próximo paso: completar columnas de `base_products` y `base_customer_test`, agregar `dbt test`
